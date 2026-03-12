@@ -103,6 +103,7 @@ Python, or any language that can manage a subprocess.
 | `type <text>` | Type text at the current cursor position |
 | `movecursor <row> <col>` | Move the cursor to a screen position |
 | `waitfor <text> [timeout]` | Block until text appears on screen (default 30s timeout) |
+| `waitready [timeout]` | Block until system is ready for input (default 30s timeout) |
 | `quit` | Disconnect and exit |
 
 ### Response Format

@@ -455,6 +455,33 @@ static void cmd_waitfor(const char *text, int timeout_secs) {
     send_error("timeout waiting for text");
 }
 
+static int display_is_ready(void) {
+    int ind = tn5250_display_indicators(display);
+    return (ind & (TN5250_DISPLAY_IND_INHIBIT | TN5250_DISPLAY_IND_X_SYSTEM |
+                   TN5250_DISPLAY_IND_X_CLOCK)) == 0;
+}
+
+static void cmd_waitready(int timeout_secs) {
+    int elapsed_ms = 0;
+    int timeout_ms = timeout_secs * 1000;
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    while (elapsed_ms < timeout_ms) {
+        if (display_is_ready()) {
+            send_ok();
+            return;
+        }
+        usleep(100000); /* 100ms */
+        elapsed_ms += 100;
+    }
+
+    send_error("timeout waiting for system ready");
+}
+
 static void process_command(char *line) {
     char *cmd;
     char *arg;
@@ -554,6 +581,14 @@ static void process_command(char *line) {
 
         cmd_waitfor(text, timeout);
     }
+    else if (strcasecmp(cmd, "waitready") == 0) {
+        int timeout = 30;
+        if (*arg != '\0') {
+            timeout = atoi(arg);
+            if (timeout <= 0) timeout = 30;
+        }
+        cmd_waitready(timeout);
+    }
     else if (strcasecmp(cmd, "quit") == 0) {
         /* Will be handled by the main loop */
     }
@@ -575,6 +610,7 @@ static void syntax(void) {
            "  type <text>               Type text at cursor\n"
            "  movecursor <row> <col>    Move cursor position\n"
            "  waitfor <text> [timeout]  Wait for text on screen\n"
+           "  waitready [timeout]       Wait for system ready (input unlocked)\n"
            "  quit                      Disconnect and exit\n");
     exit(0);
 }

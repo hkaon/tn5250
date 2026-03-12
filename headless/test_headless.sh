@@ -116,6 +116,7 @@ assert_contains "--help shows usage" "$HELP_OUT" "tn5250-headless"
 assert_contains "--help lists connect command" "$HELP_OUT" "connect"
 assert_contains "--help lists getscreen command" "$HELP_OUT" "getscreen"
 assert_contains "--help lists quit command" "$HELP_OUT" "quit"
+assert_contains "--help lists waitready command" "$HELP_OUT" "waitready"
 
 echo ""
 echo "--- --version flag ---"
@@ -129,7 +130,7 @@ assert_contains "quit returns ok" "${RESPONSES[0]}" '"status":"ok"'
 
 echo ""
 echo "--- commands before connect ---"
-run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "movecursor 0 0" "waitfor test 1"
+run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "movecursor 0 0" "waitfor test 1" "waitready 1"
 assert_contains "getscreen before connect gives error" "${RESPONSES[0]}" '"status":"error"'
 assert_contains "getscreen error says not connected" "${RESPONSES[0]}" 'not connected'
 assert_contains "sendkey before connect gives error" "${RESPONSES[1]}" 'not connected'
@@ -137,6 +138,7 @@ assert_contains "type before connect gives error" "${RESPONSES[2]}" 'not connect
 assert_contains "getfield before connect gives error" "${RESPONSES[3]}" 'not connected'
 assert_contains "movecursor before connect gives error" "${RESPONSES[4]}" 'not connected'
 assert_contains "waitfor before connect gives error" "${RESPONSES[5]}" 'not connected'
+assert_contains "waitready before connect gives error" "${RESPONSES[6]}" 'not connected'
 
 echo ""
 echo "--- unknown command ---"
@@ -239,6 +241,19 @@ echo "--- waitfor timeout ---"
 run_headless "connect pub400.com" "waitfor NONEXISTENTTEXT12345 3"
 assert_contains "waitfor nonexistent text times out" "${RESPONSES[1]}" '"status":"error"'
 assert_contains "waitfor timeout message" "${RESPONSES[1]}" 'timeout'
+
+echo ""
+echo "--- waitready after connect ---"
+run_headless "connect pub400.com" "waitready 30" "getscreen json"
+assert_contains "waitready after connect returns ok" "${RESPONSES[1]}" '"status":"ok"'
+assert_contains "indicators show not inhibited" "${RESPONSES[2]}" '"inhibit":false'
+assert_contains "indicators show no x_system" "${RESPONSES[2]}" '"x_system":false'
+
+echo ""
+echo "--- waitready after sendkey ---"
+run_headless "connect pub400.com" "waitfor PUB400 30" "type TESTUSER" "sendkey tab" "type badpass" "sendkey enter" "waitready 15" "getscreen"
+assert_contains "waitready after enter returns ok" "${RESPONSES[6]}" '"status":"ok"'
+assert_contains "screen updated after waitready" "${RESPONSES[7]}" 'TESTUSER'
 
 echo ""
 echo "--- double connect ---"
