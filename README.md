@@ -104,7 +104,8 @@ Python, or any language that can manage a subprocess.
 | `sendkey <keyname>` | Send a key (enter, f1-f24, tab, pgup, pgdn, etc.) |
 | `type <text>` | Type text at the current cursor position |
 | `movecursor <row> <col>` | Move the cursor to a screen position |
-| `waitfor <text> [timeout]` | Block until text appears on screen (default 30s timeout) |
+| `waitfor <text> [timeout]` | Block until text appears anywhere on screen (default 30s timeout) |
+| `waitforat <row> <col> <text> [timeout]` | Block until text appears at a specific position (default 30s) |
 | `waitready [timeout]` | Block until system is ready for input (default 30s timeout) |
 | `quit` | Disconnect and exit |
 

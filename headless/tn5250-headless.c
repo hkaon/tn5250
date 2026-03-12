@@ -631,6 +631,68 @@ static void cmd_waitfor(const char *text, int timeout_secs) {
     send_error("timeout waiting for text");
 }
 
+static int get_text_at(int row, int col, int len, char *buf, int bufsize) {
+    Tn5250CharMap *map;
+    int w, h, i, pos;
+
+    if (display == NULL || tn5250_display_dbuffer(display) == NULL)
+        return 0;
+
+    w = tn5250_display_width(display);
+    h = tn5250_display_height(display);
+    map = tn5250_display_char_map(display);
+
+    if (row < 0 || row >= h || col < 0 || col >= w)
+        return 0;
+
+    pos = 0;
+    for (i = 0; i < len && pos < bufsize - 1; i++) {
+        int r = row;
+        int c = col + i;
+        unsigned char ch, local;
+        while (c >= w) {
+            c -= w;
+            r++;
+        }
+        if (r >= h) break;
+        ch = tn5250_display_char_at(display, r, c);
+        if (map != NULL) {
+            local = tn5250_char_map_to_local(map, ch);
+        }
+        else {
+            local = ch;
+        }
+        buf[pos++] = (local >= 0x20 && local < 0x7f) ? local : ' ';
+    }
+    buf[pos] = '\0';
+    return pos;
+}
+
+static void cmd_waitforat(int row, int col, const char *text,
+                          int timeout_secs) {
+    int elapsed_ms = 0;
+    int timeout_ms = timeout_secs * 1000;
+    int len = (int)strlen(text);
+    char buf[1024];
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    while (elapsed_ms < timeout_ms) {
+        get_text_at(row, col, len, buf, sizeof(buf));
+        if (strcmp(buf, text) == 0) {
+            send_ok();
+            return;
+        }
+        usleep(100000); /* 100ms */
+        elapsed_ms += 100;
+    }
+
+    send_error("timeout waiting for text at position");
+}
+
 static int display_is_ready(void) {
     int ind = tn5250_display_indicators(display);
     return (ind & (TN5250_DISPLAY_IND_INHIBIT | TN5250_DISPLAY_IND_X_SYSTEM |
@@ -763,6 +825,34 @@ static void process_command(char *line) {
 
         cmd_waitfor(text, timeout);
     }
+    else if (strcasecmp(cmd, "waitforat") == 0) {
+        /* Parse: waitforat <row> <col> <text> [timeout] */
+        int row, col, timeout = 30;
+        int consumed = 0;
+
+        if (sscanf(arg, "%d %d %n", &row, &col, &consumed) < 2 ||
+            consumed == 0 || arg[consumed] == '\0') {
+            send_error("usage: waitforat <row> <col> <text> [timeout]");
+        }
+        else {
+            char text[256];
+            char *timeout_str;
+            strncpy(text, arg + consumed, sizeof(text) - 1);
+            text[sizeof(text) - 1] = '\0';
+
+            timeout_str = strrchr(text, ' ');
+            if (timeout_str != NULL) {
+                char *endptr;
+                long val = strtol(timeout_str + 1, &endptr, 10);
+                if (*endptr == '\0' && val > 0) {
+                    timeout = (int)val;
+                    *timeout_str = '\0';
+                }
+            }
+
+            cmd_waitforat(row, col, text, timeout);
+        }
+    }
     else if (strcasecmp(cmd, "waitready") == 0) {
         int timeout = 30;
         if (*arg != '\0') {
@@ -793,7 +883,9 @@ static void syntax(void) {
            "  sendkey <keyname>         Send key (enter, f1-f24, etc.)\n"
            "  type <text>               Type text at cursor\n"
            "  movecursor <row> <col>    Move cursor position\n"
-           "  waitfor <text> [timeout]  Wait for text on screen\n"
+           "  waitfor <text> [timeout]  Wait for text anywhere on screen\n"
+           "  waitforat <row> <col> <text> [timeout]\n"
+           "                            Wait for text at specific position\n"
            "  waitready [timeout]       Wait for system ready (input unlocked)\n"
            "  quit                      Disconnect and exit\n");
     exit(0);

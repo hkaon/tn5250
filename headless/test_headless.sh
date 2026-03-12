@@ -119,6 +119,7 @@ assert_contains "--help lists quit command" "$HELP_OUT" "quit"
 assert_contains "--help lists waitready command" "$HELP_OUT" "waitready"
 assert_contains "--help lists getfields command" "$HELP_OUT" "getfields"
 assert_contains "--help lists screendump command" "$HELP_OUT" "screendump"
+assert_contains "--help lists waitforat command" "$HELP_OUT" "waitforat"
 
 echo ""
 echo "--- --version flag ---"
@@ -132,7 +133,7 @@ assert_contains "quit returns ok" "${RESPONSES[0]}" '"status":"ok"'
 
 echo ""
 echo "--- commands before connect ---"
-run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "getfields" "screendump" "movecursor 0 0" "waitfor test 1" "waitready 1"
+run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "getfields" "screendump" "movecursor 0 0" "waitfor test 1" "waitforat 0 0 test 1" "waitready 1"
 assert_contains "getscreen before connect gives error" "${RESPONSES[0]}" '"status":"error"'
 assert_contains "getscreen error says not connected" "${RESPONSES[0]}" 'not connected'
 assert_contains "sendkey before connect gives error" "${RESPONSES[1]}" 'not connected'
@@ -142,7 +143,8 @@ assert_contains "getfields before connect gives error" "${RESPONSES[4]}" 'not co
 assert_contains "screendump before connect gives error" "${RESPONSES[5]}" 'not connected'
 assert_contains "movecursor before connect gives error" "${RESPONSES[6]}" 'not connected'
 assert_contains "waitfor before connect gives error" "${RESPONSES[7]}" 'not connected'
-assert_contains "waitready before connect gives error" "${RESPONSES[8]}" 'not connected'
+assert_contains "waitforat before connect gives error" "${RESPONSES[8]}" 'not connected'
+assert_contains "waitready before connect gives error" "${RESPONSES[9]}" 'not connected'
 
 echo ""
 echo "--- unknown command ---"
@@ -152,13 +154,16 @@ assert_contains "unknown command message" "${RESPONSES[0]}" 'unknown command'
 
 echo ""
 echo "--- missing arguments ---"
-run_headless "connect" "sendkey" "getfield" "getfield 0" "movecursor" "movecursor 0"
+run_headless "connect" "sendkey" "getfield" "getfield 0" "movecursor" "movecursor 0" "waitforat" "waitforat 0" "waitforat 0 0"
 assert_contains "connect without host gives error" "${RESPONSES[0]}" '"status":"error"'
 assert_contains "sendkey without key gives error" "${RESPONSES[1]}" '"status":"error"'
 assert_contains "getfield without args gives error" "${RESPONSES[2]}" '"status":"error"'
 assert_contains "getfield with one arg gives error" "${RESPONSES[3]}" '"status":"error"'
 assert_contains "movecursor without args gives error" "${RESPONSES[4]}" '"status":"error"'
 assert_contains "movecursor with one arg gives error" "${RESPONSES[5]}" '"status":"error"'
+assert_contains "waitforat without args gives error" "${RESPONSES[6]}" '"status":"error"'
+assert_contains "waitforat with one arg gives error" "${RESPONSES[7]}" '"status":"error"'
+assert_contains "waitforat with two args gives error" "${RESPONSES[8]}" '"status":"error"'
 
 echo ""
 echo "--- connect to invalid host ---"
@@ -280,6 +285,17 @@ echo "--- waitfor timeout ---"
 run_headless "connect pub400.com" "waitfor NONEXISTENTTEXT12345 3"
 assert_contains "waitfor nonexistent text times out" "${RESPONSES[1]}" '"status":"error"'
 assert_contains "waitfor timeout message" "${RESPONSES[1]}" 'timeout'
+
+echo ""
+echo "--- waitforat matching position ---"
+run_headless "connect pub400.com" "waitforat 0 9 Welcome to PUB400 30"
+assert_contains "waitforat at correct position returns ok" "${RESPONSES[1]}" '"status":"ok"'
+
+echo ""
+echo "--- waitforat wrong position ---"
+run_headless "connect pub400.com" "waitfor PUB400 30" "waitforat 5 0 Welcome 2"
+assert_contains "waitforat at wrong position times out" "${RESPONSES[2]}" '"status":"error"'
+assert_contains "waitforat timeout message" "${RESPONSES[2]}" 'timeout'
 
 echo ""
 echo "--- waitready after connect ---"
