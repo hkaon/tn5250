@@ -424,6 +424,142 @@ static void cmd_getfields(void) {
     fflush(stdout);
 }
 
+static void cmd_screendump(void) {
+    Tn5250DBuffer *dbuf;
+    Tn5250CharMap *map;
+    Tn5250Field *field;
+    int w, h, y, x, count;
+    char buf[1024];
+    int pos;
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    dbuf = tn5250_display_dbuffer(display);
+    if (dbuf == NULL) {
+        send_error("no display buffer");
+        return;
+    }
+
+    w = tn5250_display_width(display);
+    h = tn5250_display_height(display);
+    map = tn5250_display_char_map(display);
+
+    /*
+     * Walk every position on screen linearly. At each position check if
+     * the byte is an attribute (marks the start of an input field) or
+     * regular text. Collect consecutive text chars into "output" regions
+     * and emit input fields via their metadata.
+     *
+     * Screen layout: ... text ... [attr][field data ...] ... text ...
+     * The attribute byte occupies one cell just before the field data.
+     */
+
+    printf("{\"status\":\"ok\",\"regions\":[");
+    count = 0;
+
+    /* Track current output-text region */
+    int text_start_row = -1, text_start_col = -1;
+    pos = 0;
+
+    for (y = 0; y < h; y++) {
+        for (x = 0; x < w; x++) {
+            unsigned char c = tn5250_display_char_at(display, y, x);
+
+            /* Check if this position is an attribute byte (field marker) */
+            if (tn5250_char_map_attribute_p(map, c)) {
+                /* Flush any pending text region */
+                if (pos > 0) {
+                    buf[pos] = '\0';
+                    if (count > 0) printf(",");
+                    printf("{\"kind\":\"output\",\"row\":%d,\"col\":%d,"
+                           "\"length\":%d,\"data\":",
+                           text_start_row, text_start_col, pos);
+                    print_json_string(buf);
+                    printf("}");
+                    count++;
+                    pos = 0;
+                    text_start_row = -1;
+                }
+
+                /* Find the input field that starts after this attribute */
+                field = tn5250_display_field_at(display, y,
+                                                (x + 1 < w) ? x + 1 : 0);
+                if (field != NULL &&
+                    tn5250_field_start_row(field) == y &&
+                    tn5250_field_start_col(field) == ((x + 1 < w) ? x + 1 : 0)) {
+                    int flen, skip_x;
+                    if (count > 0) printf(",");
+                    printf("{\"kind\":\"input\",");
+                    printf("\"id\":%d,\"row\":%d,\"col\":%d,\"length\":%d,"
+                           "\"data\":",
+                           field->id, tn5250_field_start_row(field),
+                           tn5250_field_start_col(field),
+                           tn5250_field_length(field));
+                    get_field_data(field, buf, sizeof(buf));
+                    print_json_string(buf);
+                    printf(",\"type\":\"%s\"", tn5250_field_description(field));
+                    printf(",\"bypass\":%s",
+                           tn5250_field_is_bypass(field) ? "true" : "false");
+                    printf(",\"modified\":%s",
+                           tn5250_field_mdt(field) ? "true" : "false");
+                    printf("}");
+                    count++;
+
+                    /* Skip past the field data in our scan */
+                    flen = tn5250_field_length(field);
+                    skip_x = x + 1 + flen; /* attr + field data */
+                    y = y + skip_x / w;
+                    x = skip_x % w - 1; /* -1 because loop increments */
+                    if (x < -1) {
+                        x = w - 1;
+                        y--;
+                    }
+                    pos = 0;
+                    text_start_row = -1;
+                }
+                /* else: stray attribute, skip it */
+                continue;
+            }
+
+            /* Regular character — accumulate into text region */
+            {
+                unsigned char local;
+                if (map != NULL) {
+                    local = tn5250_char_map_to_local(map, c);
+                }
+                else {
+                    local = c;
+                }
+                if (text_start_row < 0) {
+                    text_start_row = y;
+                    text_start_col = x;
+                }
+                if (pos < (int)sizeof(buf) - 1) {
+                    buf[pos++] = (local >= 0x20 && local < 0x7f) ? local : ' ';
+                }
+            }
+        }
+    }
+
+    /* Flush trailing text */
+    if (pos > 0) {
+        buf[pos] = '\0';
+        if (count > 0) printf(",");
+        printf("{\"kind\":\"output\",\"row\":%d,\"col\":%d,"
+               "\"length\":%d,\"data\":",
+               text_start_row, text_start_col, pos);
+        print_json_string(buf);
+        printf("}");
+        count++;
+    }
+
+    printf("],\"count\":%d}\n", count);
+    fflush(stdout);
+}
+
 static void cmd_sendkey(const char *keyname) {
     int key;
 
@@ -572,6 +708,9 @@ static void process_command(char *line) {
     else if (strcasecmp(cmd, "getfields") == 0) {
         cmd_getfields();
     }
+    else if (strcasecmp(cmd, "screendump") == 0) {
+        cmd_screendump();
+    }
     else if (strcasecmp(cmd, "sendkey") == 0) {
         if (*arg == '\0') {
             send_error("usage: sendkey <keyname>");
@@ -649,7 +788,8 @@ static void syntax(void) {
            "  connect <host[:port]>     Connect to AS/400\n"
            "  getscreen [json]          Dump screen content\n"
            "  getfield <row> <col>      Get field at position\n"
-           "  getfields                 Get all fields on screen\n"
+           "  getfields                 Get all input fields on screen\n"
+           "  screendump                Get all regions (input + output text)\n"
            "  sendkey <keyname>         Send key (enter, f1-f24, etc.)\n"
            "  type <text>               Type text at cursor\n"
            "  movecursor <row> <col>    Move cursor position\n"

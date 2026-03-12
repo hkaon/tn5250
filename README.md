@@ -99,7 +99,8 @@ Python, or any language that can manage a subprocess.
 | `getscreen` | Dump the current screen as text |
 | `getscreen json` | Dump screen with cursor position, dimensions, and indicators |
 | `getfield <row> <col>` | Get field metadata and data at a screen position |
-| `getfields` | Get all fields on the current screen |
+| `getfields` | Get all input fields on the current screen |
+| `screendump` | Get all screen regions (input fields + output text) in order |
 | `sendkey <keyname>` | Send a key (enter, f1-f24, tab, pgup, pgdn, etc.) |
 | `type <text>` | Type text at the current cursor position |
 | `movecursor <row> <col>` | Move the cursor to a screen position |
