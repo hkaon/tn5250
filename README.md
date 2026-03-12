@@ -83,6 +83,83 @@ Start-Process -FilePath $cmake -Wait -NoNewWindow -ArgumentList "-S . -B .\build
 Start-Process -FilePath $cmake -Wait -NoNewWindow -ArgumentList "--build build"
 ```
 
+Headless Mode
+-------------
+
+The `tn5250-headless` binary provides a scriptable, UI-free interface for
+automating AS/400 interactions. It reads commands from stdin (one per line) and
+writes JSON responses to stdout, making it easy to drive from shell scripts,
+Python, or any language that can manage a subprocess.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `connect <host[:port]>` | Connect to an AS/400 system |
+| `getscreen` | Dump the current screen as text |
+| `getscreen json` | Dump screen with cursor position, dimensions, and indicators |
+| `getfield <row> <col>` | Get field metadata and data at a screen position |
+| `sendkey <keyname>` | Send a key (enter, f1-f24, tab, pgup, pgdn, etc.) |
+| `type <text>` | Type text at the current cursor position |
+| `movecursor <row> <col>` | Move the cursor to a screen position |
+| `waitfor <text> [timeout]` | Block until text appears on screen (default 30s timeout) |
+| `quit` | Disconnect and exit |
+
+### Response Format
+
+All responses are single-line JSON:
+
+```json
+{"status":"ok","screen":"...","cursor":[5,20],"rows":24,"cols":80,"indicators":{...}}
+{"status":"error","message":"not connected"}
+```
+
+### Example: Shell
+
+```bash
+printf 'connect myas400.example.com\nwaitfor User 30\ntype MYUSER\nsendkey tab\ntype MYPASS\nsendkey enter\nwaitfor Main Menu 30\ngetscreen\nquit\n' | tn5250-headless
+```
+
+### Example: Python
+
+```python
+import subprocess, json
+
+proc = subprocess.Popen(['tn5250-headless'],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+
+def send(cmd):
+    proc.stdin.write(cmd + '\n')
+    proc.stdin.flush()
+    return json.loads(proc.stdout.readline())
+
+send('connect myas400.example.com')
+send('waitfor User 30')
+send('type MYUSER')
+send('sendkey tab')
+send('type MYPASS')
+send('sendkey enter')
+resp = send('getscreen json')
+print(resp['screen'])
+send('quit')
+```
+
+### Building
+
+The headless binary is built automatically with the rest of the project. It has
+no ncurses dependency -- only pthreads, which is available on all POSIX systems.
+
+### Testing
+
+An integration test script is included:
+
+```bash
+./headless/test_headless.sh
+```
+
+This runs both offline tests (argument validation, error handling) and live tests
+against [pub400.com](https://pub400.com), a public IBM i server.
+
 Other Information
 -----------------
 

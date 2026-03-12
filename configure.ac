@@ -118,6 +118,7 @@ AM_CONDITIONAL([LINUX], [test "$ac_cv_build_linux" = "yes"])
 AC_CONFIG_FILES([Makefile
 		 curses/Makefile
 		 doc/Makefile
+		 headless/Makefile
 		 lib5250/Makefile
 		 lp5250d/Makefile
 		 termcaps/freebsd/Makefile
