@@ -206,6 +206,7 @@ echo ""
 echo "--- getfield on sign-on screen ---"
 run_headless "connect pub400.com" "waitfor PUB400 30" "getfield 4 24" "getfield 5 24"
 assert_contains "username field returns ok" "${RESPONSES[2]}" '"status":"ok"'
+assert_contains "username field has id" "${RESPONSES[2]}" '"id":0'
 assert_contains "username field has row" "${RESPONSES[2]}" '"row":4'
 assert_contains "username field has col" "${RESPONSES[2]}" '"col":24'
 assert_contains "username field has length" "${RESPONSES[2]}" '"length"'
@@ -220,6 +221,7 @@ run_headless "connect pub400.com" "waitfor PUB400 30" "getfields"
 assert_contains "getfields returns ok" "${RESPONSES[2]}" '"status":"ok"'
 assert_contains "getfields has fields array" "${RESPONSES[2]}" '"fields":['
 assert_contains "getfields has count" "${RESPONSES[2]}" '"count":2'
+assert_contains "getfields has field id" "${RESPONSES[2]}" '"id":0'
 assert_contains "getfields has username field row" "${RESPONSES[2]}" '"row":4'
 assert_contains "getfields has password field" "${RESPONSES[2]}" '"length":128'
 assert_contains "getfields has type info" "${RESPONSES[2]}" '"type":'

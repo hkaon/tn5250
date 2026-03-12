@@ -360,9 +360,9 @@ static void print_field_json(Tn5250Field *field) {
     char data[1024];
 
     get_field_data(field, data, sizeof(data));
-    printf("{\"row\":%d,\"col\":%d,\"length\":%d,\"data\":",
-           tn5250_field_start_row(field), tn5250_field_start_col(field),
-           tn5250_field_length(field));
+    printf("{\"id\":%d,\"row\":%d,\"col\":%d,\"length\":%d,\"data\":",
+           field->id, tn5250_field_start_row(field),
+           tn5250_field_start_col(field), tn5250_field_length(field));
     print_json_string(data);
     printf(",\"type\":\"%s\"", tn5250_field_description(field));
     printf(",\"bypass\":%s",

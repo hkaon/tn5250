@@ -146,6 +146,39 @@ print(resp['screen'])
 send('quit')
 ```
 
+### Key Names for `sendkey`
+
+| Key Name | Description |
+|----------|-------------|
+| `enter` | Enter / Send |
+| `tab` | Tab (next field) |
+| `backtab` | Back Tab (previous field) |
+| `f1` - `f24` | Function keys F1 through F24 |
+| `up` | Cursor up |
+| `down` | Cursor down |
+| `left` | Cursor left |
+| `right` | Cursor right |
+| `pgup` / `pageup` | Page Up (Roll Down) |
+| `pgdn` / `pagedown` | Page Down (Roll Up) |
+| `home` | Home |
+| `end` | End |
+| `insert` | Insert toggle |
+| `delete` | Delete character |
+| `backspace` | Backspace |
+| `newline` | New Line |
+| `fieldexit` | Field Exit |
+| `fieldplus` | Field Plus |
+| `fieldminus` | Field Minus |
+| `duplicate` | Duplicate |
+| `reset` | Reset |
+| `sysreq` | System Request |
+| `clear` | Clear |
+| `attention` | Attention |
+| `help` | Help |
+| `print` | Print |
+
+Key names are case-insensitive.
+
 ### Building
 
 The headless binary is built automatically with the rest of the project. It has
