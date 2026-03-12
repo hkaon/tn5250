@@ -330,29 +330,12 @@ static void cmd_getscreen(const char *fmt) {
     fflush(stdout);
 }
 
-static void cmd_getfield(int row, int col) {
-    Tn5250Field *field;
-    Tn5250CharMap *map;
-    int w, i, pos;
-    char data[1024];
+static void get_field_data(Tn5250Field *field, char *buf, int bufsize) {
+    Tn5250CharMap *map = tn5250_display_char_map(display);
+    int w = tn5250_display_width(display);
+    int i, pos = 0;
 
-    if (display == NULL) {
-        send_error("not connected");
-        return;
-    }
-
-    field = tn5250_display_field_at(display, row, col);
-    if (field == NULL) {
-        send_error("no field at position");
-        return;
-    }
-
-    map = tn5250_display_char_map(display);
-    w = tn5250_display_width(display);
-    pos = 0;
-
-    for (i = 0; i < tn5250_field_length(field) && pos < (int)sizeof(data) - 1;
-         i++) {
+    for (i = 0; i < tn5250_field_length(field) && pos < bufsize - 1; i++) {
         int fr, fc;
         unsigned char c, local;
         fr = tn5250_field_start_row(field);
@@ -368,19 +351,76 @@ static void cmd_getfield(int row, int col) {
         else {
             local = c;
         }
-        data[pos++] = (local >= 0x20 && local < 0x7f) ? local : ' ';
+        buf[pos++] = (local >= 0x20 && local < 0x7f) ? local : ' ';
     }
-    data[pos] = '\0';
+    buf[pos] = '\0';
+}
 
-    printf("{\"status\":\"ok\",\"field\":{\"row\":%d,\"col\":%d,\"length\":%d,"
-           "\"data\":",
+static void print_field_json(Tn5250Field *field) {
+    char data[1024];
+
+    get_field_data(field, data, sizeof(data));
+    printf("{\"row\":%d,\"col\":%d,\"length\":%d,\"data\":",
            tn5250_field_start_row(field), tn5250_field_start_col(field),
            tn5250_field_length(field));
     print_json_string(data);
     printf(",\"type\":\"%s\"", tn5250_field_description(field));
     printf(",\"bypass\":%s",
            tn5250_field_is_bypass(field) ? "true" : "false");
-    printf("}}\n");
+    printf(",\"modified\":%s",
+           tn5250_field_mdt(field) ? "true" : "false");
+    printf("}");
+}
+
+static void cmd_getfield(int row, int col) {
+    Tn5250Field *field;
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    field = tn5250_display_field_at(display, row, col);
+    if (field == NULL) {
+        send_error("no field at position");
+        return;
+    }
+
+    printf("{\"status\":\"ok\",\"field\":");
+    print_field_json(field);
+    printf("}\n");
+    fflush(stdout);
+}
+
+static void cmd_getfields(void) {
+    Tn5250Field *field, *first;
+    Tn5250DBuffer *dbuf;
+    int count = 0;
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    dbuf = tn5250_display_dbuffer(display);
+    if (dbuf == NULL || dbuf->field_list == NULL) {
+        printf("{\"status\":\"ok\",\"fields\":[],\"count\":0}\n");
+        fflush(stdout);
+        return;
+    }
+
+    printf("{\"status\":\"ok\",\"fields\":[");
+
+    first = dbuf->field_list;
+    field = first;
+    do {
+        if (count > 0) printf(",");
+        print_field_json(field);
+        count++;
+        field = field->next;
+    } while (field != first);
+
+    printf("],\"count\":%d}\n", count);
     fflush(stdout);
 }
 
@@ -529,6 +569,9 @@ static void process_command(char *line) {
             cmd_getfield(row, col);
         }
     }
+    else if (strcasecmp(cmd, "getfields") == 0) {
+        cmd_getfields();
+    }
     else if (strcasecmp(cmd, "sendkey") == 0) {
         if (*arg == '\0') {
             send_error("usage: sendkey <keyname>");
@@ -606,6 +649,7 @@ static void syntax(void) {
            "  connect <host[:port]>     Connect to AS/400\n"
            "  getscreen [json]          Dump screen content\n"
            "  getfield <row> <col>      Get field at position\n"
+           "  getfields                 Get all fields on screen\n"
            "  sendkey <keyname>         Send key (enter, f1-f24, etc.)\n"
            "  type <text>               Type text at cursor\n"
            "  movecursor <row> <col>    Move cursor position\n"

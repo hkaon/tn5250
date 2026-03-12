@@ -117,6 +117,7 @@ assert_contains "--help lists connect command" "$HELP_OUT" "connect"
 assert_contains "--help lists getscreen command" "$HELP_OUT" "getscreen"
 assert_contains "--help lists quit command" "$HELP_OUT" "quit"
 assert_contains "--help lists waitready command" "$HELP_OUT" "waitready"
+assert_contains "--help lists getfields command" "$HELP_OUT" "getfields"
 
 echo ""
 echo "--- --version flag ---"
@@ -130,15 +131,16 @@ assert_contains "quit returns ok" "${RESPONSES[0]}" '"status":"ok"'
 
 echo ""
 echo "--- commands before connect ---"
-run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "movecursor 0 0" "waitfor test 1" "waitready 1"
+run_headless "getscreen" "sendkey enter" "type hello" "getfield 0 0" "getfields" "movecursor 0 0" "waitfor test 1" "waitready 1"
 assert_contains "getscreen before connect gives error" "${RESPONSES[0]}" '"status":"error"'
 assert_contains "getscreen error says not connected" "${RESPONSES[0]}" 'not connected'
 assert_contains "sendkey before connect gives error" "${RESPONSES[1]}" 'not connected'
 assert_contains "type before connect gives error" "${RESPONSES[2]}" 'not connected'
 assert_contains "getfield before connect gives error" "${RESPONSES[3]}" 'not connected'
-assert_contains "movecursor before connect gives error" "${RESPONSES[4]}" 'not connected'
-assert_contains "waitfor before connect gives error" "${RESPONSES[5]}" 'not connected'
-assert_contains "waitready before connect gives error" "${RESPONSES[6]}" 'not connected'
+assert_contains "getfields before connect gives error" "${RESPONSES[4]}" 'not connected'
+assert_contains "movecursor before connect gives error" "${RESPONSES[5]}" 'not connected'
+assert_contains "waitfor before connect gives error" "${RESPONSES[6]}" 'not connected'
+assert_contains "waitready before connect gives error" "${RESPONSES[7]}" 'not connected'
 
 echo ""
 echo "--- unknown command ---"
@@ -211,6 +213,24 @@ assert_contains "username field has type" "${RESPONSES[2]}" '"type"'
 assert_contains "username field has bypass" "${RESPONSES[2]}" '"bypass":false'
 assert_contains "password field returns ok" "${RESPONSES[3]}" '"status":"ok"'
 assert_contains "password field has length 128" "${RESPONSES[3]}" '"length":128'
+
+echo ""
+echo "--- getfields on sign-on screen ---"
+run_headless "connect pub400.com" "waitfor PUB400 30" "getfields"
+assert_contains "getfields returns ok" "${RESPONSES[2]}" '"status":"ok"'
+assert_contains "getfields has fields array" "${RESPONSES[2]}" '"fields":['
+assert_contains "getfields has count" "${RESPONSES[2]}" '"count":2'
+assert_contains "getfields has username field row" "${RESPONSES[2]}" '"row":4'
+assert_contains "getfields has password field" "${RESPONSES[2]}" '"length":128'
+assert_contains "getfields has type info" "${RESPONSES[2]}" '"type":'
+assert_contains "getfields has bypass info" "${RESPONSES[2]}" '"bypass":'
+assert_contains "getfields has modified info" "${RESPONSES[2]}" '"modified":'
+
+echo ""
+echo "--- getfields after typing ---"
+run_headless "connect pub400.com" "waitfor PUB400 30" "type HELLO" "getfields"
+assert_contains "getfields after type returns ok" "${RESPONSES[3]}" '"status":"ok"'
+assert_contains "getfields shows typed data" "${RESPONSES[3]}" 'HELLO'
 
 echo ""
 echo "--- getfield on non-field position ---"
