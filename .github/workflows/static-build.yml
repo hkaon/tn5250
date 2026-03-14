@@ -1,0 +1,149 @@
+name: Static Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  OPENSSL_VERSION: "3.0.13"
+  NCURSES_VERSION: "6.4"
+  MUSL_PREFIX_NCURSES: /opt/musl-ncurses
+  MUSL_PREFIX_OPENSSL: /opt/musl-openssl
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build tools
+      run: sudo apt-get update && sudo apt-get install -y musl-tools musl-dev build-essential automake autoconf libtool ccache pkg-config libncurses-dev libssl-dev
+
+    - name: Set up ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-static-${{ hashFiles('lib5250/*.c', 'lib5250/*.h', 'curses/*.c', 'curses/*.h', 'headless/*.c', 'headless/*.h') }}
+        restore-keys: |
+          ccache-static-
+
+    - name: Cache musl ncurses
+      id: cache-ncurses
+      uses: actions/cache@v4
+      with:
+        path: /opt/musl-ncurses
+        key: musl-ncurses-${{ env.NCURSES_VERSION }}
+
+    - name: Cache musl OpenSSL
+      id: cache-openssl
+      uses: actions/cache@v4
+      with:
+        path: /opt/musl-openssl
+        key: musl-openssl-${{ env.OPENSSL_VERSION }}
+
+    - name: Build ncurses with musl
+      if: steps.cache-ncurses.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget -q https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz
+        tar xzf ncurses-${NCURSES_VERSION}.tar.gz
+        cd ncurses-${NCURSES_VERSION}
+        CC=musl-gcc ./configure \
+            --prefix=${MUSL_PREFIX_NCURSES} \
+            --without-shared \
+            --without-debug \
+            --without-cxx \
+            --without-cxx-binding \
+            --without-ada \
+            --without-tests \
+            --without-progs \
+            --disable-stripping
+        make -j$(nproc)
+        sudo make install
+
+    - name: Build OpenSSL with musl
+      if: steps.cache-openssl.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget -q https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz
+        tar xzf openssl-${OPENSSL_VERSION}.tar.gz
+        cd openssl-${OPENSSL_VERSION}
+        CC=musl-gcc CFLAGS="-idirafter /usr/include -idirafter /usr/include/x86_64-linux-gnu" \
+            ./Configure linux-x86_64 \
+            no-shared \
+            no-async \
+            no-dso \
+            --prefix=${MUSL_PREFIX_OPENSSL} \
+            --openssldir=${MUSL_PREFIX_OPENSSL}/ssl
+        make -j$(nproc)
+        sudo make install_sw
+
+    - name: Configure ccache as musl-gcc wrapper
+      run: |
+        ccache --zero-stats
+        ccache --set-config=max_size=200M
+
+    - name: Generate build system
+      run: ./autogen.sh
+
+    - name: Configure with musl + SSL
+      run: |
+        CC="ccache musl-gcc" \
+        CFLAGS="-I${MUSL_PREFIX_NCURSES}/include/ncurses -I${MUSL_PREFIX_NCURSES}/include -I${MUSL_PREFIX_OPENSSL}/include" \
+        LDFLAGS="-static -L${MUSL_PREFIX_NCURSES}/lib -L${MUSL_PREFIX_OPENSSL}/lib64" \
+        LIBS="-lssl -lcrypto -lncurses" \
+            ./configure \
+            --enable-static \
+            --disable-shared \
+            --with-ssl=${MUSL_PREFIX_OPENSSL}
+
+    - name: Compile
+      run: make -j$(nproc)
+
+    - name: Link static binaries
+      run: |
+        # tn5250 (curses terminal)
+        musl-gcc -static -o tn5250-static \
+            curses/tn5250-cursesterm.o curses/tn5250-tn5250.o \
+            lib5250/.libs/lib5250.a \
+            -L${MUSL_PREFIX_OPENSSL}/lib64 -L${MUSL_PREFIX_NCURSES}/lib \
+            -lssl -lcrypto -lncurses
+
+        # tn5250-headless
+        musl-gcc -static -o tn5250-headless-static \
+            headless/tn5250_headless-headlessterm.o headless/tn5250_headless-tn5250-headless.o \
+            lib5250/.libs/lib5250.a \
+            -L${MUSL_PREFIX_OPENSSL}/lib64 \
+            -lssl -lcrypto -lpthread
+
+    - name: Strip binaries
+      run: strip tn5250-static tn5250-headless-static
+
+    - name: Verify static linking
+      run: |
+        file tn5250-static
+        file tn5250-headless-static
+        ! ldd tn5250-static 2>/dev/null || ldd tn5250-static 2>&1 | grep -q "not a dynamic executable"
+        ! ldd tn5250-headless-static 2>/dev/null || ldd tn5250-headless-static 2>&1 | grep -q "not a dynamic executable"
+
+    - name: Show ccache stats
+      run: ccache --show-stats
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: tn5250-static-linux-x86_64
+        path: |
+          tn5250-static
+          tn5250-headless-static
+
+    - name: Create release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          tn5250-static
+          tn5250-headless-static
+        generate_release_notes: true
