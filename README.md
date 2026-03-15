@@ -87,6 +87,24 @@ Start-Process -FilePath $cmake -Wait -NoNewWindow -ArgumentList "-S . -B .\build
 Start-Process -FilePath $cmake -Wait -NoNewWindow -ArgumentList "--build build"
 ```
 
+Options
+-------
+
+| Option | Description |
+|--------|-------------|
+| `+destructive_backspace` | Backspace key deletes the character (default: off, backspace only moves cursor left) |
+| `+underscores` | Use underscores instead of underline attribute |
+| `+ruler` | Draw a ruler pointing to the cursor position |
+| `map=NAME` | Character map (default: `37`) |
+| `env.TERM=TYPE` | Emulate a specific IBM terminal type |
+| `env.DEVNAME=NAME` | Use NAME as session name |
+
+Example:
+
+```bash
+tn5250 +destructive_backspace pub400.com
+```
+
 Headless Mode
 -------------
 

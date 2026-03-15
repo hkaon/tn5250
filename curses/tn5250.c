@@ -1157,6 +1157,7 @@ Options:\n\
                            will be expired in SECS seconds.\n");
 #endif
     printf("\
+   +/-destructive_backspace Backspace deletes the character (default: off).\n\
    +/-underscores          Use/don't use underscores instead of underline\n\
                            attribute.\n\
    +/-ruler		   Draw a ruler pointing to the cursor position\n\
