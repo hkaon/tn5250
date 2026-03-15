@@ -975,7 +975,8 @@ static int curses_terminal_getkey(Tn5250Terminal* This) {
             return -1;
 
         case 127:
-            return K_DELETE;
+        case KEY_BACKSPACE:
+            return K_BACKSPACE;
 
         case KEY_A1:
             return K_HOME;
