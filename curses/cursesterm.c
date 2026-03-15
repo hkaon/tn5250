@@ -356,6 +356,7 @@ static void curses_terminal_init(Tn5250Terminal* This) {
     /* Initialize colors if the terminal supports it. */
     if (has_colors()) {
         start_color();
+
         init_pair(COLOR_BLACK, colorlist[COLOR_BLACK].ref,
                   colorlist[COLOR_BLACK].ref);
         init_pair(COLOR_GREEN, colorlist[COLOR_GREEN].ref,

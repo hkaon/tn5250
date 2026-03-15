@@ -34,7 +34,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /opt/musl-ncurses
-        key: musl-ncurses-${{ env.NCURSES_VERSION }}-fallbacks
+        key: musl-ncursesw-${{ env.NCURSES_VERSION }}-extcolors
 
     - name: Cache musl OpenSSL
       id: cache-openssl
@@ -52,6 +52,7 @@ jobs:
         cd ncurses-${NCURSES_VERSION}
         CC=musl-gcc ./configure \
             --prefix=${MUSL_PREFIX_NCURSES} \
+            --datadir=/usr/share \
             --without-shared \
             --without-debug \
             --without-cxx \
@@ -60,6 +61,10 @@ jobs:
             --without-tests \
             --without-progs \
             --disable-stripping \
+            --enable-widec \
+            --enable-ext-colors \
+            --with-default-terminfo-dir=/usr/share/terminfo \
+            --with-terminfo-dirs=/lib/terminfo:/usr/share/terminfo:/etc/terminfo \
             --with-fallbacks=xterm,xterm-256color,xterm-color,vt100,linux,screen,screen-256color
         make -j$(nproc)
         sudo make install
@@ -92,9 +97,9 @@ jobs:
     - name: Configure with musl + SSL
       run: |
         CC="ccache musl-gcc" \
-        CFLAGS="-I${MUSL_PREFIX_NCURSES}/include/ncurses -I${MUSL_PREFIX_NCURSES}/include -I${MUSL_PREFIX_OPENSSL}/include" \
+        CFLAGS="-I${MUSL_PREFIX_NCURSES}/include/ncursesw -I${MUSL_PREFIX_NCURSES}/include -I${MUSL_PREFIX_OPENSSL}/include" \
         LDFLAGS="-static -L${MUSL_PREFIX_NCURSES}/lib -L${MUSL_PREFIX_OPENSSL}/lib64" \
-        LIBS="-lssl -lcrypto -lncurses" \
+        LIBS="-lssl -lcrypto -lncursesw" \
             ./configure \
             --enable-static \
             --disable-shared \
@@ -109,7 +114,7 @@ jobs:
             curses/tn5250-cursesterm.o curses/tn5250-headlessterm.o curses/tn5250-tn5250.o \
             lib5250/.libs/lib5250.a \
             -L${MUSL_PREFIX_OPENSSL}/lib64 -L${MUSL_PREFIX_NCURSES}/lib \
-            -lssl -lcrypto -lncurses -lpthread
+            -lssl -lcrypto -lncursesw -lpthread
 
     - name: Strip binary
       run: strip tn5250

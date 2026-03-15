@@ -18,6 +18,7 @@ cd ncurses-6.4
 
 CC=musl-gcc ./configure \
     --prefix=/opt/musl-ncurses \
+    --datadir=/usr/share \
     --without-shared \
     --without-debug \
     --without-cxx \
@@ -26,11 +27,20 @@ CC=musl-gcc ./configure \
     --without-tests \
     --without-progs \
     --disable-stripping \
+    --enable-widec \
+    --enable-ext-colors \
+    --with-default-terminfo-dir=/usr/share/terminfo \
+    --with-terminfo-dirs=/lib/terminfo:/usr/share/terminfo:/etc/terminfo \
     --with-fallbacks=xterm,xterm-256color,xterm-color,vt100,linux,screen,screen-256color
 
 make -j$(nproc)
 make install
 ```
+
+> **Note:** The `--enable-widec` and `--enable-ext-colors` flags are required so
+> that ncurses correctly reads 32-bit terminfo entries (used by modern distros for
+> `xterm-256color`). Without these, `COLOR_PAIRS` may be read as 0 on some systems,
+> causing the terminal to display without color.
 
 ## Step 2: Build OpenSSL with musl
 
@@ -62,9 +72,9 @@ make install_sw
 cd /path/to/tn5250-0.18.0
 
 CC=musl-gcc \
-CFLAGS="-I/opt/musl-ncurses/include/ncurses -I/opt/musl-ncurses/include -I/opt/musl-openssl/include" \
+CFLAGS="-I/opt/musl-ncurses/include/ncursesw -I/opt/musl-ncurses/include -I/opt/musl-openssl/include" \
 LDFLAGS="-static -L/opt/musl-ncurses/lib -L/opt/musl-openssl/lib64" \
-LIBS="-lssl -lcrypto -lncurses" \
+LIBS="-lssl -lcrypto -lncursesw" \
     ./configure \
     --enable-static \
     --disable-shared \
@@ -87,20 +97,20 @@ musl-gcc -static -o tn5250 \
     curses/tn5250-cursesterm.o curses/tn5250-headlessterm.o curses/tn5250-tn5250.o \
     lib5250/.libs/lib5250.a \
     -L/opt/musl-openssl/lib64 -L/opt/musl-ncurses/lib \
-    -lssl -lcrypto -lncurses -lpthread
+    -lssl -lcrypto -lncursesw -lpthread
 
 # Print server daemon
 musl-gcc -static -o lp5250d \
     lp5250d/lp5250d.o lib5250/.libs/lib5250.a \
     -L/opt/musl-openssl/lib64 -L/opt/musl-ncurses/lib \
-    -lssl -lcrypto -lncurses
+    -lssl -lcrypto -lncursesw
 
 # SCS format converters
 for tool in scs2ascii scs2pdf scs2ps; do
     musl-gcc -static -o ${tool} \
         lp5250d/${tool}.o lib5250/.libs/lib5250.a \
         -L/opt/musl-openssl/lib64 -L/opt/musl-ncurses/lib \
-        -lssl -lcrypto -lncurses
+        -lssl -lcrypto -lncursesw
 done
 ```
 
@@ -128,9 +138,9 @@ If SSL/TLS support is not needed, skip Step 2 and replace Step 3 with:
 
 ```bash
 CC=musl-gcc \
-CFLAGS="-I/opt/musl-ncurses/include/ncurses -I/opt/musl-ncurses/include" \
+CFLAGS="-I/opt/musl-ncurses/include/ncursesw -I/opt/musl-ncurses/include" \
 LDFLAGS="-static -L/opt/musl-ncurses/lib" \
-LIBS="-lncurses" \
+LIBS="-lncursesw" \
     ./configure \
     --enable-static \
     --disable-shared \
