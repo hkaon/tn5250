@@ -25,7 +25,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: ccache-static-${{ hashFiles('lib5250/*.c', 'lib5250/*.h', 'curses/*.c', 'curses/*.h', 'headless/*.c', 'headless/*.h') }}
+        key: ccache-static-${{ hashFiles('lib5250/*.c', 'lib5250/*.h', 'curses/*.c', 'curses/*.h') }}
         restore-keys: |
           ccache-static-
 
@@ -102,31 +102,21 @@ jobs:
     - name: Compile
       run: make -j$(nproc)
 
-    - name: Link static binaries
+    - name: Link static binary
       run: |
-        # tn5250 (curses terminal)
-        musl-gcc -static -o tn5250-static \
-            curses/tn5250-cursesterm.o curses/tn5250-tn5250.o \
+        musl-gcc -static -o tn5250 \
+            curses/tn5250-cursesterm.o curses/tn5250-headlessterm.o curses/tn5250-tn5250.o \
             lib5250/.libs/lib5250.a \
             -L${MUSL_PREFIX_OPENSSL}/lib64 -L${MUSL_PREFIX_NCURSES}/lib \
-            -lssl -lcrypto -lncurses
+            -lssl -lcrypto -lncurses -lpthread
 
-        # tn5250-headless
-        musl-gcc -static -o tn5250-headless-static \
-            headless/tn5250_headless-headlessterm.o headless/tn5250_headless-tn5250-headless.o \
-            lib5250/.libs/lib5250.a \
-            -L${MUSL_PREFIX_OPENSSL}/lib64 \
-            -lssl -lcrypto -lpthread
-
-    - name: Strip binaries
-      run: strip tn5250-static tn5250-headless-static
+    - name: Strip binary
+      run: strip tn5250
 
     - name: Verify static linking
       run: |
-        file tn5250-static
-        file tn5250-headless-static
-        ! ldd tn5250-static 2>/dev/null || ldd tn5250-static 2>&1 | grep -q "not a dynamic executable"
-        ! ldd tn5250-headless-static 2>/dev/null || ldd tn5250-headless-static 2>&1 | grep -q "not a dynamic executable"
+        file tn5250
+        ! ldd tn5250 2>/dev/null || ldd tn5250 2>&1 | grep -q "not a dynamic executable"
 
     - name: Show ccache stats
       run: ccache --show-stats
@@ -134,16 +124,14 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: tn5250-static-linux-x86_64
+        name: tn5250-linux-x86_64
         path: |
-          tn5250-static
-          tn5250-headless-static
+          tn5250
 
     - name: Create release
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          tn5250-static
-          tn5250-headless-static
+          tn5250
         generate_release_notes: true
