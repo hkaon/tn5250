@@ -837,8 +837,8 @@ static void curses_terminal_update_indicators(Tn5250Terminal /*@unused@*/* This,
     if ((inds & TN5250_DISPLAY_IND_MACRO) != 0) {
         memcpy(ind_buf + 54, tn5250_macro_printstate(display), 11);
     }
-    sprintf(ind_buf + 72, "%03.3d/%03.3d", tn5250_display_cursor_x(display) + 1,
-            tn5250_display_cursor_y(display) + 1);
+    sprintf(ind_buf + 72, "%03.3d/%03.3d", tn5250_display_cursor_y(display) + 1,
+            tn5250_display_cursor_x(display) + 1);
 
     attrset((attr_t)COLOR_PAIR(COLOR_WHITE));
     mvaddnstr(tn5250_display_height(display), 0, ind_buf, 80);
