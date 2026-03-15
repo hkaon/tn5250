@@ -25,7 +25,8 @@ CC=musl-gcc ./configure \
     --without-ada \
     --without-tests \
     --without-progs \
-    --disable-stripping
+    --disable-stripping \
+    --with-fallbacks=xterm,xterm-256color,xterm-color,vt100,linux,screen,screen-256color
 
 make -j$(nproc)
 make install

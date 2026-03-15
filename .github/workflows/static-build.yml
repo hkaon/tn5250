@@ -34,7 +34,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /opt/musl-ncurses
-        key: musl-ncurses-${{ env.NCURSES_VERSION }}
+        key: musl-ncurses-${{ env.NCURSES_VERSION }}-fallbacks
 
     - name: Cache musl OpenSSL
       id: cache-openssl
@@ -59,7 +59,8 @@ jobs:
             --without-ada \
             --without-tests \
             --without-progs \
-            --disable-stripping
+            --disable-stripping \
+            --with-fallbacks=xterm,xterm-256color,xterm-color,vt100,linux,screen,screen-256color
         make -j$(nproc)
         sudo make install
 
