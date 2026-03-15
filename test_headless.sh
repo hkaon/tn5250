@@ -1,19 +1,19 @@
 #!/bin/bash
 #
-# Integration tests for tn5250-headless
+# Integration tests for tn5250 --headless
 # Connects to pub400.com (public IBM i server) for live testing.
 #
 # Usage: ./test_headless.sh
 #
-# Requires: the headless binary to be built (run make first)
+# Requires: the tn5250 binary to be built (run make first)
 #
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TOP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-HEADLESS="$SCRIPT_DIR/.libs/tn5250-headless"
-export LD_LIBRARY_PATH="$TOP_DIR/lib5250/.libs:$LD_LIBRARY_PATH"
+HEADLESS="$SCRIPT_DIR/curses/.libs/tn5250"
+HEADLESS_ARGS="--headless"
+export LD_LIBRARY_PATH="$SCRIPT_DIR/lib5250/.libs:$LD_LIBRARY_PATH"
 
 PASS=0
 FAIL=0
@@ -90,7 +90,7 @@ run_headless() {
     input="${input}quit\n"
 
     local output
-    output=$(printf "$input" | timeout 60 "$HEADLESS" 2>&1) || true
+    output=$(printf "$input" | timeout 60 "$HEADLESS" $HEADLESS_ARGS 2>&1) || true
     # Split output into array by newlines
     IFS=$'\n' read -r -d '' -a RESPONSES <<< "$output" || true
 }
@@ -111,8 +111,8 @@ echo ""
 # ============================================================
 
 echo "--- --help flag ---"
-HELP_OUT=$("$HEADLESS" --help 2>&1) || true
-assert_contains "--help shows usage" "$HELP_OUT" "tn5250-headless"
+HELP_OUT=$("$HEADLESS" $HEADLESS_ARGS --help 2>&1) || true
+assert_contains "--help shows usage" "$HELP_OUT" "tn5250 --headless"
 assert_contains "--help lists connect command" "$HELP_OUT" "connect"
 assert_contains "--help lists getscreen command" "$HELP_OUT" "getscreen"
 assert_contains "--help lists quit command" "$HELP_OUT" "quit"
@@ -123,8 +123,8 @@ assert_contains "--help lists waitforat command" "$HELP_OUT" "waitforat"
 
 echo ""
 echo "--- --version flag ---"
-VERSION_OUT=$("$HEADLESS" --version 2>&1) || true
-assert_contains "--version shows version" "$VERSION_OUT" "tn5250-headless"
+VERSION_OUT=$("$HEADLESS" $HEADLESS_ARGS --version 2>&1) || true
+assert_contains "--version shows version" "$VERSION_OUT" "tn5250"
 
 echo ""
 echo "--- quit command ---"

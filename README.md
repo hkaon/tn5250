@@ -196,7 +196,7 @@ systems.
 An integration test script is included:
 
 ```bash
-./headless/test_headless.sh
+./test_headless.sh
 ```
 
 This runs both offline tests (argument validation, error handling) and live tests
