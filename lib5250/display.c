@@ -1382,12 +1382,22 @@ void tn5250_display_do_key(Tn5250Display* This, int key) {
         This->keystate = TN5250_KEYSTATE_UNLOCKED;
         break;
 
-    case K_BACKSPACE:
-        tn5250_display_kf_backspace(This);
+    case K_BACKSPACE: {
         if (This->destructive_backspace) {
+            Tn5250Field* bs_field = tn5250_display_current_field(This);
+            if (bs_field != NULL &&
+                tn5250_display_cursor_x(This) == tn5250_field_start_col(bs_field) &&
+                tn5250_display_cursor_y(This) == tn5250_field_start_row(bs_field)) {
+                /* At field start: do nothing */
+                break;
+            }
+            tn5250_display_kf_backspace(This);
             tn5250_display_kf_delete(This);
+        } else {
+            tn5250_display_kf_backspace(This);
         }
         break;
+    }
 
     case K_LEFT:
         tn5250_display_kf_left(This);
