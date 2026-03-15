@@ -45,14 +45,21 @@ AC_CACHE_CHECK([whether to install terminfo entries],
 AM_CONDITIONAL([INSTALL_TERMINFO], [test "$ac_cv_install_terminfo" = "yes"])
 
 # run AC_CHECK_LIB this way to avoid linking curses into every executable
-AC_CHECK_LIB(ncurses, initscr, CURSES_LIBS=-lncurses)
-if test "$ac_cv_lib_ncurses_initscr" = "yes"
+# Check for ncursesw (wide-char) first, then ncurses, then curses
+AC_CHECK_LIB(ncursesw, initscr, CURSES_LIBS=-lncursesw)
+if test "$ac_cv_lib_ncursesw_initscr" = "yes"
 then
-    # Check if we need libtinfo too, see https://bugs.gentoo.org/457530#c0
     AC_CHECK_LIB(tinfo, nodelay, CURSES_LIBS="$CURSES_LIBS -ltinfo")
 else
-    # Check for -lcurses if -lncurses isn't found.
-    AC_CHECK_LIB(curses, initscr, CURSES_LIBS='-lcurses', AC_MSG_ERROR([** You need a curses-compatible library installed.]))
+    AC_CHECK_LIB(ncurses, initscr, CURSES_LIBS=-lncurses)
+    if test "$ac_cv_lib_ncurses_initscr" = "yes"
+    then
+        # Check if we need libtinfo too, see https://bugs.gentoo.org/457530#c0
+        AC_CHECK_LIB(tinfo, nodelay, CURSES_LIBS="$CURSES_LIBS -ltinfo")
+    else
+        # Check for -lcurses if neither ncursesw nor ncurses is found.
+        AC_CHECK_LIB(curses, initscr, CURSES_LIBS='-lcurses', AC_MSG_ERROR([** You need a curses-compatible library installed.]))
+    fi
 fi
 
 if test "$ac_cv_use_old_keys" != "yes";
