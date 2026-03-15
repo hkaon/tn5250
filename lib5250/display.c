@@ -57,7 +57,7 @@ Tn5250Display* tn5250_display_new() {
     This->indicators = 0;
     This->indicators_dirty = 0;
     This->pending_insert = 0;
-    This->destructive_backspace = 0;
+    This->destructive_backspace = 1;
     This->sign_key_hack = 1;
     This->field_minus_in_char = 0;
     This->uninhibited = 1;

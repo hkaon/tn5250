@@ -92,7 +92,7 @@ Options
 
 | Option | Description |
 |--------|-------------|
-| `+destructive_backspace` | Backspace key deletes the character (default: off, backspace only moves cursor left) |
+| `+/-destructive_backspace` | Backspace key deletes the character (default: on). Use `-destructive_backspace` for non-destructive (cursor left only) |
 | `+underscores` | Use underscores instead of underline attribute |
 | `+ruler` | Draw a ruler pointing to the cursor position |
 | `map=NAME` | Character map (default: `37`) |
