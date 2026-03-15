@@ -332,7 +332,7 @@ static void cmd_getscreen(const char *fmt) {
 
         printf("{\"status\":\"ok\",\"screen\":");
         print_json_string(screen);
-        printf(",\"cursor\":[%d,%d]", cursor_y, cursor_x);
+        printf(",\"cursor\":[%d,%d]", cursor_y + 1, cursor_x + 1);
         printf(",\"rows\":%d,\"cols\":%d",
                tn5250_display_height(display),
                tn5250_display_width(display));
@@ -389,8 +389,8 @@ static void print_field_json(Tn5250Field *field) {
 
     get_field_data(field, data, sizeof(data));
     printf("{\"id\":%d,\"row\":%d,\"col\":%d,\"length\":%d,\"data\":",
-           field->id, tn5250_field_start_row(field),
-           tn5250_field_start_col(field), tn5250_field_length(field));
+           field->id, tn5250_field_start_row(field) + 1,
+           tn5250_field_start_col(field) + 1, tn5250_field_length(field));
     print_json_string(data);
     printf(",\"type\":\"%s\"", tn5250_field_description(field));
     printf(",\"bypass\":%s",
@@ -494,7 +494,7 @@ static void cmd_screendump(void) {
                     if (count > 0) printf(",");
                     printf("{\"kind\":\"output\",\"row\":%d,\"col\":%d,"
                            "\"length\":%d,\"data\":",
-                           text_start_row, text_start_col, pos);
+                           text_start_row + 1, text_start_col + 1, pos);
                     print_json_string(buf);
                     printf("}");
                     count++;
@@ -513,8 +513,8 @@ static void cmd_screendump(void) {
                     printf("{\"kind\":\"input\",");
                     printf("\"id\":%d,\"row\":%d,\"col\":%d,\"length\":%d,"
                            "\"data\":",
-                           field->id, tn5250_field_start_row(field),
-                           tn5250_field_start_col(field),
+                           field->id, tn5250_field_start_row(field) + 1,
+                           tn5250_field_start_col(field) + 1,
                            tn5250_field_length(field));
                     get_field_data(field, buf, sizeof(buf));
                     print_json_string(buf);
@@ -568,7 +568,7 @@ static void cmd_screendump(void) {
         if (count > 0) printf(",");
         printf("{\"kind\":\"output\",\"row\":%d,\"col\":%d,"
                "\"length\":%d,\"data\":",
-               text_start_row, text_start_col, pos);
+               text_start_row + 1, text_start_col + 1, pos);
         print_json_string(buf);
         printf("}");
         count++;
@@ -576,6 +576,58 @@ static void cmd_screendump(void) {
 
     printf("],\"count\":%d}\n", count);
     fflush(stdout);
+}
+
+static void cmd_settext(int row, int col, const char *text) {
+    Tn5250Field *field;
+    int flen;
+    const char *p;
+
+    if (display == NULL) {
+        send_error("not connected");
+        return;
+    }
+
+    field = tn5250_display_field_at(display, row, col);
+    if (field == NULL) {
+        send_error("no field at position");
+        return;
+    }
+
+    if (tn5250_field_is_bypass(field)) {
+        send_error("field is protected");
+        return;
+    }
+
+    flen = tn5250_field_length(field);
+
+    /* Check that text fits in the field */
+    if ((int)strlen(text) > flen) {
+        send_error("text exceeds field length");
+        return;
+    }
+
+    /* Move cursor to field start */
+    tn5250_display_set_cursor(display,
+                              tn5250_field_start_row(field),
+                              tn5250_field_start_col(field));
+
+    /* Type each character of the new text */
+    for (p = text; *p; p++) {
+        tn5250_headless_terminal_push_key(term, (unsigned char)*p);
+    }
+
+    /* Only send Field Exit if text is shorter than field — it clears the
+     * remainder.  When text fills the entire field there is nothing to clear,
+     * and sending Field Exit would act on the *next* field. */
+    if ((int)strlen(text) < flen) {
+        tn5250_headless_terminal_push_key(term, K_FIELDEXIT);
+    }
+
+    /* Give the session time to process all the keys */
+    usleep(100000); /* 100ms */
+
+    send_ok();
 }
 
 static void cmd_sendkey(const char *keyname) {
@@ -778,11 +830,11 @@ static void process_command(char *line) {
     }
     else if (strcasecmp(cmd, "getfield") == 0) {
         int row, col;
-        if (sscanf(arg, "%d %d", &row, &col) != 2) {
-            send_error("usage: getfield <row> <col>");
+        if (sscanf(arg, "%d %d", &row, &col) != 2 || row < 1 || col < 1) {
+            send_error("usage: getfield <row> <col> (1-based)");
         }
         else {
-            cmd_getfield(row, col);
+            cmd_getfield(row - 1, col - 1);
         }
     }
     else if (strcasecmp(cmd, "getfields") == 0) {
@@ -790,6 +842,17 @@ static void process_command(char *line) {
     }
     else if (strcasecmp(cmd, "screendump") == 0) {
         cmd_screendump();
+    }
+    else if (strcasecmp(cmd, "settext") == 0) {
+        int row, col;
+        int consumed = 0;
+        if (sscanf(arg, "%d %d %n", &row, &col, &consumed) < 2 ||
+            consumed == 0 || arg[consumed] == '\0' || row < 1 || col < 1) {
+            send_error("usage: settext <row> <col> <text> (1-based)");
+        }
+        else {
+            cmd_settext(row - 1, col - 1, arg + consumed);
+        }
     }
     else if (strcasecmp(cmd, "sendkey") == 0) {
         if (*arg == '\0') {
@@ -809,11 +872,11 @@ static void process_command(char *line) {
     }
     else if (strcasecmp(cmd, "movecursor") == 0) {
         int row, col;
-        if (sscanf(arg, "%d %d", &row, &col) != 2) {
-            send_error("usage: movecursor <row> <col>");
+        if (sscanf(arg, "%d %d", &row, &col) != 2 || row < 1 || col < 1) {
+            send_error("usage: movecursor <row> <col> (1-based)");
         }
         else {
-            cmd_movecursor(row, col);
+            cmd_movecursor(row - 1, col - 1);
         }
     }
     else if (strcasecmp(cmd, "waitfor") == 0) {
@@ -849,8 +912,8 @@ static void process_command(char *line) {
         int consumed = 0;
 
         if (sscanf(arg, "%d %d %n", &row, &col, &consumed) < 2 ||
-            consumed == 0 || arg[consumed] == '\0') {
-            send_error("usage: waitforat <row> <col> <text> [timeout]");
+            consumed == 0 || arg[consumed] == '\0' || row < 1 || col < 1) {
+            send_error("usage: waitforat <row> <col> <text> [timeout] (1-based)");
         }
         else {
             char text[256];
@@ -868,7 +931,7 @@ static void process_command(char *line) {
                 }
             }
 
-            cmd_waitforat(row, col, text, timeout);
+            cmd_waitforat(row - 1, col - 1, text, timeout);
         }
     }
     else if (strcasecmp(cmd, "waitready") == 0) {
@@ -892,12 +955,13 @@ static void headless_syntax(void) {
            "Syntax:\n"
            "  tn5250 --headless\n\n"
            "Reads commands from stdin, writes JSON responses to stdout.\n\n"
-           "Commands:\n"
+           "Commands (row/col are 1-based):\n"
            "  connect <host[:port]>     Connect to AS/400\n"
            "  getscreen [json]          Dump screen content\n"
            "  getfield <row> <col>      Get field at position\n"
            "  getfields                 Get all input fields on screen\n"
            "  screendump                Get all regions (input + output text)\n"
+           "  settext <row> <col> <text> Set field text (clears field first)\n"
            "  sendkey <keyname>         Send key (enter, f1-f24, etc.)\n"
            "  type <text>               Type text at cursor\n"
            "  movecursor <row> <col>    Move cursor position\n"

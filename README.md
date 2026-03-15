@@ -120,20 +120,21 @@ Python, or any language that can manage a subprocess.
 | `connect <host[:port]>` | Connect to an AS/400 system |
 | `getscreen` | Dump the current screen as text |
 | `getscreen json` | Dump screen with cursor position, dimensions, and indicators |
-| `getfield <row> <col>` | Get field metadata and data at a screen position |
+| `getfield <row> <col>` | Get field metadata and data at a screen position (1-based) |
 | `getfields` | Get all input fields on the current screen |
 | `screendump` | Get all screen regions (input fields + output text) in order |
+| `settext <row> <col> <text>` | Clear field at position and set new text (1-based) |
 | `sendkey <keyname>` | Send a key (enter, f1-f24, tab, pgup, pgdn, etc.) |
 | `type <text>` | Type text at the current cursor position |
-| `movecursor <row> <col>` | Move the cursor to a screen position |
+| `movecursor <row> <col>` | Move the cursor to a screen position (1-based) |
 | `waitfor <text> [timeout]` | Block until text appears anywhere on screen (default 30s timeout) |
-| `waitforat <row> <col> <text> [timeout]` | Block until text appears at a specific position (default 30s) |
+| `waitforat <row> <col> <text> [timeout]` | Block until text appears at a specific position (1-based, default 30s) |
 | `waitready [timeout]` | Block until system is ready for input (default 30s timeout) |
 | `quit` | Disconnect and exit |
 
 ### Response Format
 
-All responses are single-line JSON:
+All responses are single-line JSON. All row and column values are 1-based (top-left is row 1, col 1):
 
 ```json
 {"status":"ok","screen":"...","cursor":[5,20],"rows":24,"cols":80,"indicators":{...}}
