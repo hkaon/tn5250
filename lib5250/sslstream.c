@@ -486,19 +486,24 @@ static int ssl_stream_connect(Tn5250Stream* This, const char* to) {
         port = "telnets";
     }
 
-    struct addrinfo* result;
+    struct addrinfo* result = NULL;
     struct addrinfo hints = { .ai_family = AF_UNSPEC,
                               .ai_socktype = SOCK_STREAM };
 
     r = getaddrinfo(host, port, &hints, &result);
     if (r == EAI_NONAME && strcmp(port, "telnets") == 0) {
         hints.ai_flags |= AI_NUMERICSERV;
-        freeaddrinfo(result);
+        if (result != NULL) {
+            freeaddrinfo(result);
+            result = NULL;
+        }
         r = getaddrinfo(host, "992", &hints, &result);
     }
 
     if (r != 0) {
-        freeaddrinfo(result);
+        if (result != NULL) {
+            freeaddrinfo(result);
+        }
         _tn5250_set_error(TN5250_ERROR_GAI, r);
         return r;
     }
